@@ -1,1 +1,8 @@
+# Ignore dataset directory
 data
+
+# Ignore outputs
+out/
+
+# Ignore python generated files
+**/__pycache__
