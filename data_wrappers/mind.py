@@ -65,18 +65,18 @@ class MINDDataset:
         for imp in imps:
             s = str(imp).split("-")
             imp_ids.append(s[0])
-            sample.append(s[1])
+            sample.append(int(s[1]))
 
         # Tokenize the impressions
         tok_imps = []
 
         for imp in imp_ids:
-            tok_imps.append(self.tok.encode(self.news_df.loc[imp].loc["abstract"]))
+            tok_imps.append(self.tok.encode(f"{self.news_df.loc[imp].loc["title"]} {self.news_df.loc[imp].loc["abstract"]}"))
 
         # Tokenize the history
         tok_hist = []
 
         for item in beh.loc["history"].split(" "):
-            tok_hist.append(self.tok.encode(self.news_df.loc[item].loc["abstract"]))
+            tok_hist.append(self.tok.encode(f"{self.news_df.loc[item].loc["title"]} {self.news_df.loc[item].loc["abstract"]}"))
 
         return tok_hist, tok_imps, sample
