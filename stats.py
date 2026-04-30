@@ -9,7 +9,7 @@ raw_news, raw_behaviors = utils.get_dataset()
 
 print("Example rows")
 print(f"News:")
-print(raw_news[0])
+print(raw_news["N55528"])
 # print(raw_news.news_df)
 print()
 print(f"Beh")
@@ -32,7 +32,7 @@ sns.barplot(x=cat_counts.index, y=cat_counts.values)
 plt.title('Article Count by Category')
 plt.xticks(rotation=45)
 plt.tight_layout()
-plt.savefig('results/category_distribution.png')
+plt.savefig('out/category_distribution.png')
 
 # # User click distribution
 # def count_clicks(imp_str):
