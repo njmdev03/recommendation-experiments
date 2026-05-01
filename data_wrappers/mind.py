@@ -56,27 +56,30 @@ class MINDDataset:
         beh = self.behaviors_df.loc[idx]
 
         # Get the impressions array
-        imps = beh.loc["impressions"].split(" ")
+        candidates = beh.loc["impressions"].split(" ")
 
         # Split the impressions into articles and positive/negative sample state
-        imp_ids = []
-        sample = []
+        cand_ids = []
+        label = []
 
-        for imp in imps:
-            s = str(imp).split("-")
-            imp_ids.append(s[0])
-            sample.append(int(s[1]))
+        for cand in candidates:
+            s = str(cand).split("-")
+            cand_ids.append(s[0])
+            label.append(int(s[1]))
 
         # Tokenize the impressions
-        tok_imps = []
+        tok_cand = []
 
-        for imp in imp_ids:
-            tok_imps.append(self.tok.encode(f"{self.news_df.loc[imp].loc["title"]} {self.news_df.loc[imp].loc["abstract"]}"))
+        for cand in cand_ids:
+            tok_cand.append(self.tok.encode(f"{self.news_df.loc[cand].loc["title"]} {self.news_df.loc[cand].loc["abstract"]}"))
 
         # Tokenize the history
         tok_hist = []
 
-        for item in beh.loc["history"].split(" "):
-            tok_hist.append(self.tok.encode(f"{self.news_df.loc[item].loc["title"]} {self.news_df.loc[item].loc["abstract"]}"))
+        if beh.loc["history"].split(" ") != ['']:
+            for item in beh.loc["history"].split(" "):
+                tok_hist.append(self.tok.encode(f"{self.news_df.loc[item].loc["title"]} {self.news_df.loc[item].loc["abstract"]}"))
+        else:
+            tok_hist = [self.tok.encode("<no_his>")]
 
-        return tok_hist, tok_imps, sample
+        return tok_hist, tok_cand, label

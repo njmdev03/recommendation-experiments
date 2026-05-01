@@ -2,9 +2,11 @@ import config as conf
 
 import torch
 from torch import nn
+from torch.nn.utils.rnn import pad_sequence
 from torch.utils.data.dataloader import DataLoader
 from tqdm import tqdm
 from data_wrappers.mind import MINDDataset, MINDNews
+import models
 
 import utils
 # from models.simple_transformer import SimpleTransformer
@@ -28,20 +30,68 @@ emb = utils.get_embedding(tok.__len__(), conf.EMBEDDING_SIZE)
 # Training dataset
 data = MINDDataset(tok)
 
-# Dataloader
-# from torch.nn.utils.rnn import pad_sequence
+pad_token_id = tok.stoi["<pad>"]
 
-def collate_fn(batch, pad_id=0):
-    print(f"Pre-collate Batch sample {batch}")
-    print()
-#     src_batch = [torch.tensor(x[0]) for x in batch]
-#     tgt_batch = [torch.tensor(x[1]) for x in batch]
+def collate_fn(batch):
+    hist_batch, cand_batch, label_batch = zip(*batch)
 
-#     src_batch = pad_sequence(src_batch, batch_first=True, padding_value=pad_id)
-#     tgt_batch = pad_sequence(tgt_batch, batch_first=True, padding_value=pad_id)
+    # ---- Flatten everything ----
+    hist_flat = []
+    cand_flat = []
+    hist_sizes = []
+    cand_sizes = []
 
-#     return src_batch, tgt_batch
-    return batch
+    for h, i in zip(hist_batch, cand_batch):
+        hist_sizes.append(len(h))
+        cand_sizes.append(len(i))
+
+        hist_flat.extend([torch.tensor(x) for x in h])
+        cand_flat.extend([torch.tensor(x) for x in i])
+
+    # ---- Pad ----
+    hist_padded = pad_sequence(hist_flat, batch_first=True, padding_value=pad_token_id)
+    imp_padded = pad_sequence(cand_flat, batch_first=True, padding_value=pad_token_id)
+
+    # ---- Masks ----
+    hist_mask = (hist_padded != pad_token_id).long()
+    imp_mask = (imp_padded != pad_token_id).long()
+
+    # ---- Reshape back ----
+    max_hist = max(hist_sizes)
+    max_imp = max(cand_sizes)
+
+    def reshape(flat, sizes, max_len):
+        out = []
+        idx = 0
+        for s in sizes:
+            out.append(flat[idx:idx+s])
+            idx += s
+
+        padded = []
+        for seq in out:
+            if len(seq) < max_len:
+                pad = torch.zeros(max_len - len(seq), *seq[0].shape, dtype=seq[0].dtype)
+                seq = torch.cat([seq, pad], dim=0)
+            padded.append(seq)
+
+        return torch.stack(padded)
+
+    hist_ids = reshape(hist_padded, hist_sizes, max_hist)
+    hist_attn = reshape(hist_mask, hist_sizes, max_hist)
+
+    imp_ids = reshape(imp_padded, cand_sizes, max_imp)
+    imp_attn = reshape(imp_mask, cand_sizes, max_imp)
+
+    # ---- Labels (index of positive) ----
+    labels = torch.tensor([s.index(1) for s in label_batch])
+
+    return {
+        "hist_ids": hist_ids,
+        "hist_mask": hist_attn,
+        "imp_ids": imp_ids,
+        "imp_mask": imp_attn,
+        "labels": labels
+    }
 
 dataloader = DataLoader(
     data,
@@ -50,39 +100,31 @@ dataloader = DataLoader(
     collate_fn=collate_fn
 )
 
-for batch in dataloader:
-    print(f"Batch sample {batch}")
-    print()
-
-    quit()
-
 # Model
-model = SimpleTransformer(emb, tgt_emb, tgt_tok.__len__())
-model.to(conf.DEVICE)
+model = models.NewsRecModel(vocab_size=len(tok)).to(conf.DEVICE)
+
+def score(user_vec, candidate_vecs):
+    # dot product
+    return torch.matmul(candidate_vecs, user_vec.unsqueeze(-1)).squeeze(-1)
 
 # Training
-criterion = nn.CrossEntropyLoss(ignore_index=tgt_tok.stoi["<pad>"])
+criterion = nn.CrossEntropyLoss(ignore_index=pad_token_id)
 optimizer = torch.optim.Adam(model.parameters(), lr=conf.LEARNING_RATE)
 
-for epoch in range(conf.EPOCHS):
-    print(f"Starting epoch {epoch}")
-    model.train()
+try:
+    for epoch in range(conf.EPOCHS):
+        print(f"Starting epoch {epoch}")
+        model.train()
 
-    for src_batch, tgt_batch in tqdm(dataloader):
-        src_batch = src_batch.to(conf.DEVICE)
-        tgt_batch = tgt_batch.to(conf.DEVICE)
+        for batch in tqdm(dataloader):
+            for k in batch:
+                batch[k] = batch[k].to(conf.DEVICE)
 
-        tgt_input = tgt_batch[:, :-1]
-        tgt_output = tgt_batch[:, 1:]
+            scores = model(batch)
+            loss = criterion(scores, batch["labels"])
 
-        with torch.amp.autocast(str(conf.DEVICE)):
-            logits = model(src_batch, tgt_input)
-
-            loss = criterion(
-                logits.reshape(-1, logits.size(-1)),
-                tgt_output.reshape(-1)
-            )
-
-        optimizer.zero_grad()
-        loss.backward()
-        optimizer.step()
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
+except KeyboardInterrupt:
+    print("Training interrupted by user")

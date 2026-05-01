@@ -15,7 +15,7 @@ def get_dataset():
 
 def get_tokenizer(data):
     if conf.TOKENIZER == conf.Tokenizers.WORD:
-        tok = WordTokenizer()
+        tok = WordTokenizer(specials = ["<pad>", "<unk>", "<bos>", "<eos>", "<no_his>"])
 
         if not tok.load(conf.VOCAB):
             tok.train(data)
