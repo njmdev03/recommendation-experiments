@@ -5,32 +5,26 @@ from torch import nn
 from torch.nn.utils.rnn import pad_sequence
 from torch.utils.data.dataloader import DataLoader
 from tqdm import tqdm
-from data_wrappers.mind import MINDDataset, MINDNews
+from data_wrappers.mind import MINDDataset
 import models
 
 import utils
 # from models.simple_transformer import SimpleTransformer
 
-
-news = MINDNews()
-
-# print("Loading dataset...")
-# # Dataset
-# raw = utils.get_dataset()
+# Training dataset
+data = MINDDataset()
 
 print("Training Tokenizers")
 # Tokenizers
-tok = utils.get_tokenizer(news.iter("abstract").to_numpy())
+tok = utils.get_tokenizer([data.get_news_text(nid, tokenize=False) for nid in data.get_news_ids()])
 
-print(f"{tok.encode("Top Halloween parties this weekend")}")
+pad_token_id = tok.stoi["<pad>"]
+data.tok = tok
 
 print("Build Embeddings")
 emb = utils.get_embedding(tok.__len__(), conf.EMBEDDING_SIZE)
 
-# Training dataset
-data = MINDDataset(tok)
-
-pad_token_id = tok.stoi["<pad>"]
+quit()
 
 def collate_fn(batch):
     hist_batch, cand_batch, label_batch = zip(*batch)
@@ -123,8 +117,13 @@ try:
             scores = model(batch)
             loss = criterion(scores, batch["labels"])
 
+            # TODO: Optional testing metrics
+
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
+
+        # TODO: Checkpoint
+        # TODO: Eval + Record
 except KeyboardInterrupt:
     print("Training interrupted by user")
