@@ -22,12 +22,12 @@ pad_token_id = tok.stoi["<pad>"]
 data.tok = tok
 
 print("Build Embeddings")
-emb = utils.get_embedding(tok.__len__(), conf.EMBEDDING_SIZE)
+emb = utils.get_embedding(len(tok), conf.EMBEDDING_SIZE)
 
 quit()
 
 def collate_fn(batch):
-    hist_batch, cand_batch, label_batch = zip(*batch)
+    hist_id_batch, cand_id_batch, label_id_batch = zip(*batch)
 
     # ---- Flatten everything ----
     hist_flat = []
@@ -97,13 +97,13 @@ dataloader = DataLoader(
 # Model
 model = models.NewsRecModel(vocab_size=len(tok)).to(conf.DEVICE)
 
-def score(user_vec, candidate_vecs):
-    # dot product
-    return torch.matmul(candidate_vecs, user_vec.unsqueeze(-1)).squeeze(-1)
-
 # Training
 criterion = nn.CrossEntropyLoss(ignore_index=pad_token_id)
 optimizer = torch.optim.Adam(model.parameters(), lr=conf.LEARNING_RATE)
+
+def score(user_vec, candidate_vecs):
+    # dot product
+    return torch.matmul(candidate_vecs, user_vec.unsqueeze(-1)).squeeze(-1)
 
 try:
     for epoch in range(conf.EPOCHS):
