@@ -51,7 +51,7 @@ class MultiHeadSelfAttention(nn.Module):
 
         if mask is not None:
             mask = mask.unsqueeze(1).unsqueeze(2)
-            scores = scores.masked_fill(mask == 0, -1e9)
+            scores = scores.masked_fill(mask == 0, float("-inf"))
 
         attn = torch.softmax(scores, dim=-1)
         out = attn @ v

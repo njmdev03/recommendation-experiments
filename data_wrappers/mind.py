@@ -47,7 +47,16 @@ class MINDDataset:
         self.news_df = self.news_df.fillna("")
         self.behaviors_df = self.behaviors_df.fillna(no_hist_tok)
 
+        self.no_hist_tok = no_hist_tok
+
         self.tok = news_tokenizer
+
+        # Bake news to dict
+        # self.news_dict = {}
+
+        # for row in self.news_df:
+        #     text = row["title"] + " " + row["abstract"]
+        #     self.news_dict[row["news_id"]] = text
 
     def __len__(self):
         return self.behaviors_df.__len__()
@@ -56,9 +65,14 @@ class MINDDataset:
         return self.news_df.index.to_numpy()
 
     def get_news_text(self, news_id, tokenize=True):
-        row = self.news_df.loc[news_id]
+        if news_id == self.no_hist_tok:
+            text = self.no_hist_tok
+        else:
+            row = self.news_df.loc[news_id]
 
-        text = row["title"] + " " + row["abstract"]
+            text = row["title"] + " " + row["abstract"]
+
+        # text = self.news_dict[news_id]
 
         if tokenize:
             return self.tok.encode(text)
@@ -71,7 +85,7 @@ class MINDDataset:
         hist_ids = beh.loc["history"].split(" ")
         impressions = beh.loc["impressions"].split(" ")
         cand_ids = [str(x).split("-")[0] for x in impressions]
-        labels = [str(x).split("-")[1] for x in impressions]
+        labels = [int(str(x).split("-")[1]) for x in impressions]
 
         return hist_ids, cand_ids, labels
 
