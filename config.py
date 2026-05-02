@@ -11,18 +11,32 @@ class Tokenizers(Enum):
 class Embeddings(Enum):
     SIMPLE = "Simple"
 
+class Models(Enum):
+    BASIC = "Basic"
+
+# Experiment Management
+RUN_NAME = "mind_baseline_v1"
+LOG_DIR = "./out/{RUN_NAME}/runs"
+CKPT_DIR = "./out/{RUN_NAME}/checkpoints"
+
+# Profiling (ish)
+SYNC_PROFILES = True
+
+# Model config
+MODEL = Models.BASIC
+
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 # Hyper Parameters
 LEARNING_RATE = 1e-4
 EPOCHS = 1
-BATCH_SIZE = 16
+BATCH_SIZE = 8
 ACCUM_STEPS = 1
 USE_MIX_PRE = True
 
 # Model
-COMPILE = True
+COMPILE = False
 
 # Dataset Config
 DATASET = Datasets.MIND
@@ -35,7 +49,7 @@ MAX_LEN  = 128
 TOKENIZER = Tokenizers.WORD
 
 # Vocab saving
-VOCAB = f"./out/vocabs/{TOKENIZER.value}-vocab.json"
+VOCAB = f"./out/{RUN_NAME}/vocabs/{TOKENIZER.value}-vocab.json"
 
 # Embeddings
 EMBEDDING = Embeddings.SIMPLE
