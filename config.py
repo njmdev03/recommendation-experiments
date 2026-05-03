@@ -37,7 +37,7 @@ LOG_DIR = f"./out/{RUN_NAME}/runs"
 CKPT_DIR = f"./out/{RUN_NAME}/checkpoints"
 CKPT_NAME = Template(f"Epoch-$epoch.pt")
 
-RESUME_PATH = "./out/mind_baseline_v1/checkpoints/Epoch-0.pt"
+RESUME_PATH = "./out/mind_baseline_v1/checkpoints/Epoch-1.pt"
 
 # Profiling (ish)
 SYNC_PROFILES = False
@@ -46,7 +46,7 @@ DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 # Hyper Parameters
 LEARNING_RATE = 1e-4
-EPOCHS = 2
+EPOCHS = 3
 BATCH_SIZE = 8
 ACCUM_STEPS = 1
 USE_MIX_PRE = True

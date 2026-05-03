@@ -114,8 +114,8 @@ def main():
     for epoch in range(start_epoch, conf.EPOCHS):
         print(f"Starting epoch {epoch}")
 
-        del train_metrics
-        del eval_metrics
+        train_metrics = None
+        eval_metrics = None
 
         train_metrics = train.train_epoch(
             loader,
@@ -137,7 +137,7 @@ def main():
             epoch,
             {"train": train_metrics}
         )
-        
+
         if conf.TRAIN_VAL_METRICS and len(conf.TRAIN_VAL_METRICS) > 0:
             eval_metrics = evaluator.evaluate(
                 model,
