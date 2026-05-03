@@ -20,7 +20,8 @@ METRIC_REGISTRY = {
 }
 
 class Datasets(Enum):
-    MIND = "MIND"
+    MIND = "MIND",
+    MIND_SPLIT = "MIND Split"
 
 class Tokenizers(Enum):
     WORD = "Word"
@@ -31,22 +32,19 @@ class Embeddings(Enum):
 class Models(Enum):
     BASIC = "Basic"
 
+DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
 # Experiment Management
-RUN_NAME = "mind_baseline_v1"
+RUN_NAME = "mind_baseline_v2"
 LOG_DIR = f"./out/{RUN_NAME}/runs"
 CKPT_DIR = f"./out/{RUN_NAME}/checkpoints"
 CKPT_NAME = Template(f"Epoch-$epoch.pt")
 
-RESUME_PATH = "./out/mind_baseline_v1/checkpoints/Epoch-1.pt"
-
-# Profiling (ish)
-SYNC_PROFILES = False
-
-DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+RESUME_PATH = "./out/mind_baseline_v1/checkpoints/Epoch-2.pt"
 
 # Hyper Parameters
 LEARNING_RATE = 1e-4
-EPOCHS = 3
+EPOCHS = 4
 BATCH_SIZE = 8
 ACCUM_STEPS = 1
 USE_MIX_PRE = True
@@ -56,15 +54,17 @@ VAL_BATCH_SIZE = BATCH_SIZE
 VAL_OUTPUT_DIR = f"./out/{RUN_NAME}/val"
 VAL_SKIP_DONE = True
 
-# Model
-MODEL = Models.BASIC
-COMPILE = False
+# Metrics
+TRAINING_METRICS = [Metrics.MRR]
+TRAINING_METRIC_EVERY_N = 100
+TRAIN_VAL_METRICS = []
+VAL_METRICS = [Metrics.MRR, Metrics.NDCG_5, Metrics.NDCG_10]
 
 # Dataset Config
-DATASET = Datasets.MIND
+DATASET = Datasets.MIND_SPLIT
 
 MAX_HIST = 50
-MAX_IMP  = 20
+MAX_CAND  = 20
 MAX_LEN  = 128
 
 # Tokenizing
@@ -77,8 +77,9 @@ VOCAB = f"./out/{RUN_NAME}/vocabs/{TOKENIZER.value}-vocab.json"
 EMBEDDING = Embeddings.SIMPLE
 EMBEDDING_SIZE = 128
 
-# Metrics
-TRAINING_METRICS = [Metrics.MRR]
-TRAINING_METRIC_EVERY_N = 100
-TRAIN_VAL_METRICS = []
-VAL_METRICS = [Metrics.MRR, Metrics.NDCG_5, Metrics.NDCG_10]
+# Model
+MODEL = Models.BASIC
+COMPILE = False
+
+# Profiling (ish)
+SYNC_PROFILES = False
