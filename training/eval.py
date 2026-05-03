@@ -5,11 +5,14 @@ import config as conf
 
 
 @torch.no_grad()
-def evaluate(model, loader, metrics: dict):
+def evaluate(model, loader, metrics: dict = None):
     """
     metrics: dict[str, callable]
         Each callable should take (logits, batch) and return a scalar (float or tensor)
     """
+    if not metrics:
+        return
+
     model.eval()
 
     pbar = tqdm.tqdm(loader, dynamic_ncols=True, desc="Evaluating")

@@ -2,7 +2,6 @@ import torch
 from torch import nn
 from torch.utils.data.dataloader import DataLoader
 from functools import partial
-from pathlib import Path
 
 import config as conf
 
@@ -62,10 +61,6 @@ def collate_fn(batch, dataset, pad_token_id):
             "labels": labels
         }
 
-# def score(user_vec, candidate_vecs):
-#         # dot product
-#         return torch.matmul(candidate_vecs, user_vec.unsqueeze(-1)).squeeze(-1)
-
 def main():
     data, tok = utils.get_dataset()
     val_data, _ = utils.get_dataset(train=False, tok=tok)
@@ -119,6 +114,9 @@ def main():
     for epoch in range(start_epoch, conf.EPOCHS):
         print(f"Starting epoch {epoch}")
 
+        del train_metrics
+        del eval_metrics
+
         train_metrics = train.train_epoch(
             loader,
             model,
@@ -131,23 +129,33 @@ def main():
             }
         )
 
-        eval_metrics = evaluator.evaluate(
-            model,
-            val_loader,
-            {
-                metric.value: conf.METRIC_REGISTRY[metric]
-                for metric in conf.TRAIN_VAL_METRICS
-            }
-        )
-
         checkpoints.save(
             utils.get_checkpoint_path(epoch),
             model,
             optimizer,
             scaler,
             epoch,
-            {"train": train_metrics, "eval": eval_metrics}
+            {"train": train_metrics}
         )
+        
+        if conf.TRAIN_VAL_METRICS and len(conf.TRAIN_VAL_METRICS) > 0:
+            eval_metrics = evaluator.evaluate(
+                model,
+                val_loader,
+                {
+                    metric.value: conf.METRIC_REGISTRY[metric]
+                    for metric in conf.TRAIN_VAL_METRICS
+                }
+            )
+
+            checkpoints.save(
+                utils.get_checkpoint_path(epoch),
+                model,
+                optimizer,
+                scaler,
+                epoch,
+                {"train": train_metrics, "eval": eval_metrics}
+            )
 
 if __name__ == "__main__":
     try:
