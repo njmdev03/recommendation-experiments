@@ -1,14 +1,18 @@
 import torch
+import os
 
 import config as conf
 
 
-def save(path, model, optimizer, scaler, epoch):
+def save(path, model, optimizer, scaler, epoch, metrics=None):
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+
     torch.save({
         "model": model.state_dict(),
         "optimizer": optimizer.state_dict(),
         "scaler": scaler.state_dict(),
-        "epoch": epoch
+        "epoch": epoch,
+        "metrics": metrics
     }, path)
 
 def load(path, model, optimizer, scaler):

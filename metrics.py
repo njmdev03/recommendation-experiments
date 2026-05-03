@@ -1,45 +1,50 @@
 import torch
-import math
 import numpy as np
 from sklearn.metrics import roc_auc_score
 
 
-def compute_auc(scores, labels):
-    scores = scores.detach().cpu().numpy()
-    labels = labels.detach().cpu().numpy()
-    print("labels NaNs:", np.isnan(labels).sum())
-    print("scores NaNs:", np.isnan(scores).sum())
-    print("labels shape:", np.shape(labels))
-    print("scores shape:", np.shape(scores))
-    print("unique labels:", np.unique(labels)[:10])
-    return roc_auc_score(labels, scores)
+def compute_auc(scores, batch):
+    # scores: (B, N), labels: (B,) indices
+    labels = batch["labels"].detach().cpu().numpy()
+    scores_np = scores.detach().cpu().numpy()
+    mask = batch["imp_mask"].any(dim=-1).detach().cpu().numpy()
 
-def compute_mrr(scores, labels):
-    # sort by predicted scores (descending)
-    sorted_indices = torch.argsort(scores, descending=True)
-    sorted_labels = labels[sorted_indices]
+    B, N = scores_np.shape
+    aucs = []
+    for i in range(B):
+        m = mask[i]
+        y_true = np.zeros(N)
+        y_true[labels[i]] = 1
 
-    # find first relevant item
-    for i, label in enumerate(sorted_labels):
-        if label.item() == 1:
-            return 1.0 / (i + 1)
-    return 0.0
+        y_true = y_true[m]
+        y_score = scores_np[i][m]
 
-def dcg_at_k(labels, k):
-    labels = labels[:k]
-    return sum(
-        (2**rel - 1) / math.log2(i + 2)
-        for i, rel in enumerate(labels)
-    )
+        if len(np.unique(y_true)) > 1:
+            aucs.append(roc_auc_score(y_true, y_score))
+        else:
+            # If only one class is present, AUC is not well-defined.
+            # However, in recommendation, this usually means something is wrong
+            # with the batching/sampling if it happens often.
+            pass
+    return np.mean(aucs) if aucs else 0.0
 
-def compute_ndcg(scores, labels, k):
-    sorted_indices = torch.argsort(scores, descending=True)
-    sorted_labels = labels[sorted_indices].tolist()
+def compute_mrr(scores, batch):
+    # scores: (B, N), labels: (B,) indices
+    labels = batch["labels"]
+    indices = torch.argsort(scores, dim=1, descending=True)
+    mask = (indices == labels.unsqueeze(1))
+    ranks = mask.nonzero(as_tuple=True)[1]
 
-    dcg = dcg_at_k(sorted_labels, k)
+    mrr = 1.0 / (ranks + 1).float()
+    return mrr.mean().item()
 
-    # ideal ranking
-    ideal_labels = sorted(labels.tolist(), reverse=True)
-    idcg = dcg_at_k(ideal_labels, k)
+def compute_ndcg(scores, batch, k):
+    # scores: (B, N), labels: (B,) indices
+    labels = batch["labels"]
+    indices = torch.argsort(scores, dim=1, descending=True)
+    mask = (indices == labels.unsqueeze(1))
+    ranks = mask.nonzero(as_tuple=True)[1]
 
-    return dcg / idcg if idcg > 0 else 0.0
+    ndcgs = 1.0 / torch.log2(ranks.float() + 2.0)
+    ndcgs[ranks >= k] = 0.0
+    return ndcgs.mean().item()

@@ -40,11 +40,7 @@ def train_epoch(loader, model, optimizer, scaler, criterion, metrics={}):
             batch_size = batch["labels"].size(0)
 
             for name, fn in metrics.items():
-                value = fn(logits, batch["labels"])
-
-                # convert tensors -> python float safely
-                # if torch.is_tensor(value):
-                #     value = value.item()
+                value = fn(logits, batch)
 
                 totals[name] += value * batch_size
                 counts[name] += batch_size
@@ -87,9 +83,6 @@ def train_epoch(loader, model, optimizer, scaler, criterion, metrics={}):
             "opt": f"{opt_time:.3f}",
         })
 
-        if step == 100:
-            break
-
     result = {
         name: totals[name] / max(counts[name], 1)
         for name in metrics
@@ -98,5 +91,4 @@ def train_epoch(loader, model, optimizer, scaler, criterion, metrics={}):
     result["loss"] = total_loss / max(count, 1)
     result["epoch_time"] = epoch_time
 
-    # return {"loss": loss.detach(), "epoch_time": total_time}
     return result

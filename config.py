@@ -15,8 +15,8 @@ class Metrics(Enum):
 METRIC_REGISTRY = {
     Metrics.AUC: metrics.compute_auc,
     Metrics.MRR: metrics.compute_mrr,
-    Metrics.NDCG_5: partial(metrics.compute_ndcg, n=5),
-    Metrics.NDCG_10: partial(metrics.compute_ndcg, n=10)
+    Metrics.NDCG_5: partial(metrics.compute_ndcg, k=5),
+    Metrics.NDCG_10: partial(metrics.compute_ndcg, k=10)
 }
 
 class Datasets(Enum):
@@ -37,7 +37,7 @@ LOG_DIR = f"./out/{RUN_NAME}/runs"
 CKPT_DIR = f"./out/{RUN_NAME}/checkpoints"
 CKPT_NAME = Template(f"Epoch-$epoch.pt")
 
-RESUME_PATH = None
+RESUME_PATH = "./out/mind_baseline_v1/checkpoints/Epoch-0.pt"
 
 # Profiling (ish)
 SYNC_PROFILES = False
@@ -46,11 +46,14 @@ DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 # Hyper Parameters
 LEARNING_RATE = 1e-4
-EPOCHS = 1
+EPOCHS = 2
 BATCH_SIZE = 8
-VAL_BATCH_SIZE = BATCH_SIZE
 ACCUM_STEPS = 1
 USE_MIX_PRE = True
+
+# Evaluation
+VAL_BATCH_SIZE = BATCH_SIZE
+VAL_OUTPUT_DIR = f"./out/{RUN_NAME}/val"
 
 # Model
 MODEL = Models.BASIC
