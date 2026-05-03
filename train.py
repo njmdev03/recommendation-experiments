@@ -2,12 +2,14 @@ import torch
 from torch import nn
 from torch.utils.data.dataloader import DataLoader
 from functools import partial
+from pathlib import Path
 
 import config as conf
 
 import utils
 from training import engine as train
 from training import eval as evaluator
+from training import checkpoint as checkpoints
 
 
 def collate_fn(batch, dataset, pad_token_id):
@@ -60,12 +62,13 @@ def collate_fn(batch, dataset, pad_token_id):
             "labels": labels
         }
 
-def score(user_vec, candidate_vecs):
-        # dot product
-        return torch.matmul(candidate_vecs, user_vec.unsqueeze(-1)).squeeze(-1)
+# def score(user_vec, candidate_vecs):
+#         # dot product
+#         return torch.matmul(candidate_vecs, user_vec.unsqueeze(-1)).squeeze(-1)
 
 def main():
     data, tok = utils.get_dataset()
+    val_data, _ = utils.get_dataset(train=False, tok=tok)
 
     pad_token_id = tok.stoi["<pad>"]
 
@@ -82,6 +85,17 @@ def main():
         collate_fn=collate
     )
 
+    val_loader = DataLoader(
+        val_data,
+        batch_size=conf.VAL_BATCH_SIZE,
+        shuffle=True,
+        pin_memory=True,
+        num_workers=4,
+        persistent_workers=False,
+        prefetch_factor=4,
+        collate_fn=collate
+    )
+
     model = utils.get_model(len(tok))
 
     criterion = nn.CrossEntropyLoss(ignore_index=pad_token_id)
@@ -89,13 +103,49 @@ def main():
     optimizer = torch.optim.Adam(model.parameters(), lr=conf.LEARNING_RATE)
     scaler = torch.amp.GradScaler(enabled=conf.USE_MIX_PRE)
 
-    for epoch in range(conf.EPOCHS):
+    start_epoch = 0
+
+    # Checkpoint resuming
+    if conf.RESUME_PATH:
+        start_epoch = checkpoints.load(
+            conf.RESUME_PATH,
+            model,
+            optimizer,
+            scaler
+        )
+
+    for epoch in range(start_epoch, conf.EPOCHS):
         print(f"Starting epoch {epoch}")
 
-        train.train_epoch(loader, model, optimizer, scaler, criterion)
+        train_metrics = train.train_epoch(
+            loader,
+            model,
+            optimizer,
+            scaler,
+            criterion,
+            {
+                metric.value: conf.METRIC_REGISTRY[metric]
+                for metric in conf.TRAIN_VAL_METRICS
+            }
+        )
 
-        metrics = evaluator.evaluate(model, loader, criterion)
-        print(metrics)
+        eval_metrics = evaluator.evaluate(
+            model,
+            val_loader,
+            {
+                metric.value: conf.METRIC_REGISTRY[metric]
+                for metric in conf.TRAIN_VAL_METRICS
+            }
+        )
+
+        checkpoints.save(
+            utils.get_checkpoint_path(epoch),
+            model,
+            optimizer,
+            scaler,
+            epoch,
+            {"train": train_metrics, "eval": eval_metrics}
+        )
 
 if __name__ == "__main__":
     try:

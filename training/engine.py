@@ -5,10 +5,18 @@ import time
 import config as conf
 
 
-def train_epoch(loader, model, optimizer, scaler, criterion):
+def train_epoch(loader, model, optimizer, scaler, criterion, metrics={}):
     model.train()
 
     pbar = tqdm.tqdm(loader, dynamic_ncols=True)
+
+    totals = {name: 0.0 for name in metrics}
+    counts = {name: 0 for name in metrics}
+
+    total_loss = 0
+    count = 0
+
+    epoch_time = 0
 
     for step, batch in enumerate(pbar):
         t_init = time.time()
@@ -28,7 +36,24 @@ def train_epoch(loader, model, optimizer, scaler, criterion):
             logits = model(batch)
             loss = criterion(logits, batch["labels"])
 
+        if (step + 1) % conf.TRAINING_METRIC_EVERY_N == 0:
+            batch_size = batch["labels"].size(0)
+
+            for name, fn in metrics.items():
+                value = fn(logits, batch["labels"])
+
+                # convert tensors -> python float safely
+                # if torch.is_tensor(value):
+                #     value = value.item()
+
+                totals[name] += value * batch_size
+                counts[name] += batch_size
+
         loss = loss / conf.ACCUM_STEPS
+
+        total_loss += loss.item()
+        count += 1
+
         scaler.scale(loss).backward()
 
         if conf.SYNC_PROFILES:
@@ -52,6 +77,8 @@ def train_epoch(loader, model, optimizer, scaler, criterion):
 
         eff_batch = conf.BATCH_SIZE * conf.ACCUM_STEPS
 
+        epoch_time += total_time
+
         pbar.set_postfix({
             "gpu_sps": f"{eff_batch / fwd_time:.1f}",
             "pipe_sps": f"{eff_batch / total_time:.1f}",
@@ -59,3 +86,17 @@ def train_epoch(loader, model, optimizer, scaler, criterion):
             "fwd": f"{fwd_time:.3f}",
             "opt": f"{opt_time:.3f}",
         })
+
+        if step == 100:
+            break
+
+    result = {
+        name: totals[name] / max(counts[name], 1)
+        for name in metrics
+    }
+
+    result["loss"] = total_loss / max(count, 1)
+    result["epoch_time"] = epoch_time
+
+    # return {"loss": loss.detach(), "epoch_time": total_time}
+    return result

@@ -50,9 +50,12 @@ class MultiHeadSelfAttention(nn.Module):
         scores = (q @ k.transpose(-2, -1)) / math.sqrt(self.d_head)
 
         if mask is not None:
+            mask = mask.bool()
             mask = mask.unsqueeze(1).unsqueeze(2)
-            scores = scores.masked_fill(mask == 0, float("-inf"))
 
+            scores = scores.masked_fill(~mask, -1e4)
+
+        scores = scores - scores.max(dim=-1, keepdim=True).values
         attn = torch.softmax(scores, dim=-1)
         out = attn @ v
 
@@ -76,4 +79,4 @@ class PositionalEncoding(nn.Module):
         self.pe = pe.unsqueeze(0)  # (1, L, D)
 
     def forward(self, x):
-        return x + self.pe[:, :x.size(1)].to(x.device)
+        return x + self.pe[:, :x.size(1)].to(x.device).type_as(x)

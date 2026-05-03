@@ -1,6 +1,23 @@
 from enum import Enum
 import torch
+from string import Template
+from functools import partial
 
+import metrics
+
+
+class Metrics(Enum):
+    AUC = "AUC"
+    MRR = "MRR"
+    NDCG_5 = "NDCG@5"
+    NDCG_10 = "NDCG@10"
+
+METRIC_REGISTRY = {
+    Metrics.AUC: metrics.compute_auc,
+    Metrics.MRR: metrics.compute_mrr,
+    Metrics.NDCG_5: partial(metrics.compute_ndcg, n=5),
+    Metrics.NDCG_10: partial(metrics.compute_ndcg, n=10)
+}
 
 class Datasets(Enum):
     MIND = "MIND"
@@ -16,15 +33,14 @@ class Models(Enum):
 
 # Experiment Management
 RUN_NAME = "mind_baseline_v1"
-LOG_DIR = "./out/{RUN_NAME}/runs"
-CKPT_DIR = "./out/{RUN_NAME}/checkpoints"
+LOG_DIR = f"./out/{RUN_NAME}/runs"
+CKPT_DIR = f"./out/{RUN_NAME}/checkpoints"
+CKPT_NAME = Template(f"Epoch-$epoch.pt")
+
+RESUME_PATH = None
 
 # Profiling (ish)
-SYNC_PROFILES = True
-
-# Model config
-MODEL = Models.BASIC
-
+SYNC_PROFILES = False
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -32,10 +48,12 @@ DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 LEARNING_RATE = 1e-4
 EPOCHS = 1
 BATCH_SIZE = 8
+VAL_BATCH_SIZE = BATCH_SIZE
 ACCUM_STEPS = 1
 USE_MIX_PRE = True
 
 # Model
+MODEL = Models.BASIC
 COMPILE = False
 
 # Dataset Config
@@ -53,4 +71,10 @@ VOCAB = f"./out/{RUN_NAME}/vocabs/{TOKENIZER.value}-vocab.json"
 
 # Embeddings
 EMBEDDING = Embeddings.SIMPLE
-EMBEDDING_SIZE = 100
+EMBEDDING_SIZE = 128
+
+# Metrics
+TRAINING_METRICS = [Metrics.MRR]
+TRAINING_METRIC_EVERY_N = 100
+TRAIN_VAL_METRICS = [Metrics.MRR]
+VAL_METRICS = [Metrics.MRR, Metrics.NDCG_5, Metrics.NDCG_10]

@@ -27,7 +27,8 @@ class NewsEncoder(nn.Module):
 
         # mean pooling (mask-aware)
         mask = mask.unsqueeze(-1)
-        x = (x * mask).sum(dim=1) / mask.sum(dim=1)
+        denom = mask.sum(dim=1).clamp(min=1e-6)
+        x = (x * mask).sum(dim=1) / denom
 
         return self.pool(x)  # (N, D)
 

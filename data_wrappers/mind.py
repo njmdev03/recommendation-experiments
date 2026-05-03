@@ -36,11 +36,11 @@ class MINDDataset:
     def __init__(self, news_tokenizer=None, split="train", size = "small", no_hist_tok="<no_his>"):
         news_cols = ['news_id', 'category', 'subcategory', 'title',
                      'abstract', 'url', 'title_entities', 'abstract_entities']
-        self.news_df = pd.read_csv('data/MINDsmall_train/news.tsv',
+        self.news_df = pd.read_csv(f'data/MINDsmall_{split}/news.tsv',
                                     sep='\t', names=news_cols)
 
         beh_cols = ['impression_id', 'user_id', 'time', 'history', 'impressions']
-        self.behaviors_df = pd.read_csv('data/MINDsmall_train/behaviors.tsv',
+        self.behaviors_df = pd.read_csv(f'data/MINDsmall_{split}/behaviors.tsv',
                                         sep='\t', names=beh_cols)
 
         self.news_df = self.news_df.set_index("news_id")

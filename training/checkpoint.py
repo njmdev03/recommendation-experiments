@@ -3,13 +3,12 @@ import torch
 import config as conf
 
 
-def save(path, model, optimizer, epoch, step, scaler):
+def save(path, model, optimizer, scaler, epoch):
     torch.save({
         "model": model.state_dict(),
         "optimizer": optimizer.state_dict(),
-        "epoch": epoch,
-        "step": step,
         "scaler": scaler.state_dict(),
+        "epoch": epoch
     }, path)
 
 def load(path, model, optimizer, scaler):
@@ -19,4 +18,4 @@ def load(path, model, optimizer, scaler):
     optimizer.load_state_dict(ckpt["optimizer"])
     scaler.load_state_dict(ckpt["scaler"])
 
-    return ckpt["epoch"], ckpt["step"]
+    return ckpt["epoch"]
