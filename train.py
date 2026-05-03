@@ -125,7 +125,7 @@ def main():
             criterion,
             {
                 metric.value: conf.METRIC_REGISTRY[metric]
-                for metric in conf.TRAIN_VAL_METRICS
+                for metric in conf.TRAINING_METRICS
             }
         )
 
