@@ -18,6 +18,11 @@ def train_epoch(loader, model, optimizer, scaler, criterion, metrics={}):
 
     epoch_time = 0
 
+    met_disp = {
+        name: f"{0:.3f}"
+        for name in metrics
+    }
+
     for step, batch in enumerate(pbar):
         t_init = time.time()
 
@@ -44,6 +49,8 @@ def train_epoch(loader, model, optimizer, scaler, criterion, metrics={}):
 
                 totals[name] += value * batch_size
                 counts[name] += batch_size
+
+                met_disp[name] = f"{totals[name] / max(counts[name], 1):.3f}"
 
         loss = loss / conf.ACCUM_STEPS
 
@@ -75,13 +82,15 @@ def train_epoch(loader, model, optimizer, scaler, criterion, metrics={}):
 
         epoch_time += total_time
 
-        pbar.set_postfix({
+        post = {
             "gpu_sps": f"{eff_batch / fwd_time:.1f}",
             "pipe_sps": f"{eff_batch / total_time:.1f}",
             "enqueue": f"{transfer_time:.3f}",
             "fwd": f"{fwd_time:.3f}",
             "opt": f"{opt_time:.3f}",
-        })
+        }
+
+        pbar.set_postfix(post | met_disp)
 
     result = {
         name: totals[name] / max(counts[name], 1)

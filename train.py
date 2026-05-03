@@ -112,7 +112,9 @@ def main():
             model,
             optimizer,
             scaler
-        )
+        ) + 1
+
+        print(f"Resuming from {start_epoch}")
 
     for epoch in range(start_epoch, conf.EPOCHS):
         print(f"Starting epoch {epoch}")
