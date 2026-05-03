@@ -100,6 +100,22 @@ def main():
 
     ckpt_paths = sorted(glob.glob(os.path.join(conf.CKPT_DIR, "*.pt")))
 
+    print(f"Found checkpoints: {ckpt_paths}")
+
+    if conf.VAL_SKIP_DONE:
+        val_paths = sorted(glob.glob(os.path.join(conf.VAL_OUTPUT_DIR, "*.json")))
+
+        print(f"Found evaluations: {val_paths}")
+
+        for path in val_paths:
+            filename = os.path.basename(path).split(".")[0]
+            for i, c_path in enumerate(ckpt_paths):
+                c_filename = os.path.basename(c_path).split(".")[0]
+                if c_filename == filename:
+                    ckpt_paths.pop(i)
+
+    print(f"Checkpoint to be evaluated: {ckpt_paths}")
+
     for checkpoint in ckpt_paths:
         model = utils.get_model(len(tok))
         optimizer = torch.optim.Adam(model.parameters(), lr=conf.LEARNING_RATE)

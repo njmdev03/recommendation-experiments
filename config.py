@@ -54,6 +54,7 @@ USE_MIX_PRE = True
 # Evaluation
 VAL_BATCH_SIZE = BATCH_SIZE
 VAL_OUTPUT_DIR = f"./out/{RUN_NAME}/val"
+VAL_SKIP_DONE = True
 
 # Model
 MODEL = Models.BASIC
