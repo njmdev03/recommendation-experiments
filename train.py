@@ -1,5 +1,6 @@
 import torch
 from torch import nn
+import torch.nn.functional as F
 from torch.utils.data.dataloader import DataLoader
 from functools import partial
 
@@ -10,6 +11,23 @@ from training import engine as train
 from training import eval as evaluator
 from training import checkpoint as checkpoints
 
+
+def masked_bce_with_logits(logits, targets, candidate_mask):
+    """
+    logits: [B, C]
+    targets: [B, C] (0/1)
+    candidate_mask: [B, C] (1 = valid, 0 = padding)
+    """
+
+    loss = F.binary_cross_entropy_with_logits(
+        logits,
+        targets.float(),
+        reduction="none"
+    )
+
+    loss = loss * candidate_mask.float()
+
+    return loss.sum() / candidate_mask.sum().clamp_min(1)
 
 def main():
     data, tok = utils.get_dataset()
@@ -24,14 +42,13 @@ def main():
 
     loader = DataLoader(
         data,
-        batch_size=1,
-        # batch_size=conf.BATCH_SIZE,
-        # shuffle=True,
-        # pin_memory=True,
-        # num_workers=4,
-        # persistent_workers=False,
-        # prefetch_factor=4,
-        # collate_fn=collate_fn
+        batch_size=conf.BATCH_SIZE,
+        shuffle=True,
+        pin_memory=True,
+        num_workers=4,
+        persistent_workers=True,
+        prefetch_factor=4,
+        collate_fn=collate_fn
     )
 
     val_loader = DataLoader(
@@ -54,9 +71,10 @@ def main():
     #         print(f"{key} = {batch[key]}")
     #     quit()
 
-    model = utils.get_model(len(tok))
+    model = utils.get_model(len(tok), 0, 0)
 
-    criterion = nn.CrossEntropyLoss(ignore_index=pad_token_id)
+    # criterion = nn.CrossEntropyLoss(ignore_index=pad_token_id)
+    criterion = nn.BCEWithLogitsLoss()
 
     optimizer = torch.optim.Adam(model.parameters(), lr=conf.LEARNING_RATE)
     scaler = torch.amp.GradScaler(enabled=conf.USE_MIX_PRE)

@@ -1,6 +1,7 @@
 import torch
 from torch import nn
 from pathlib import Path
+from enum import Enum
 
 import config as conf
 
@@ -16,15 +17,6 @@ from models import NewsRecModel
 def get_checkpoint_path(epoch):
     return Path(conf.CKPT_DIR) / Path(conf.CKPT_NAME.substitute(epoch=epoch))
 
-def get_model(vocab_size):
-    if conf.MODEL == conf.Models.BASIC:
-        model = NewsRecModel(vocab_size=vocab_size)
-
-        if conf.COMPILE:
-            model = torch.compile(model)
-
-        return model.to(conf.DEVICE)
-
 def get_dataset(train=True, tok=None):
     if conf.DATASET == conf.Datasets.MIND:
         data = MINDDataset(split="train" if train else "dev")
@@ -39,7 +31,7 @@ def get_dataset(train=True, tok=None):
         return data, tok
 
     if conf.DATASET == conf.Datasets.MIND_SPLIT:
-        news_dataset = MINDNews()
+        news_dataset = MINDNews(split="train" if train else "dev")
 
         if not tok:
             tok = get_tokenizer([
@@ -54,12 +46,12 @@ def get_dataset(train=True, tok=None):
             ]
         )
 
-        behaviors_dataset = MINDBehaviors()
+        behaviors_dataset = MINDBehaviors(split="train" if train else "dev")
 
         behavior_pipeline = BehaviorPipeline(
             behaviors_dataset,
             transforms=[
-                ReorderCandidates(),
+                ShuffleCandidates(),
                 PadBehavior(max_hist=conf.MAX_HIST, max_cand=conf.MAX_CAND),
                 NewsLookup(news_pipeline),
                 ToTensor()
@@ -81,6 +73,17 @@ def get_tokenizer(data):
 def get_embedding(vocab_size, embedding_size_hint):
     if conf.EMBEDDING == conf.Embeddings.SIMPLE:
         return nn.Embedding(vocab_size, embedding_size_hint)
+    if conf.EMBEDDING == conf.Embeddings.GLOVE:
+        return None
+
+def get_model(vocab_size, embedding_size, embedding):
+    if conf.MODEL == conf.Models.BASIC:
+        model = NewsRecModel(vocab_size=vocab_size)
+
+        if conf.COMPILE:
+            model = torch.compile(model)
+
+        return model.to(conf.DEVICE)
 
 def get_collate():
     if conf.DATASET == conf.Datasets.MIND:
@@ -88,3 +91,8 @@ def get_collate():
 
     if conf.DATASET == conf.Datasets.MIND_SPLIT:
         return split_collate
+
+class TrainingMode(Enum):
+    TOKENS = "tokens",
+    CACHE_EMBEDDINGS = "cache_embeddings"
+    BERT = "bert"

@@ -92,6 +92,9 @@ def train_epoch(loader, model, optimizer, scaler, criterion, metrics={}):
 
         pbar.set_postfix(post | met_disp)
 
+        # if step % 200 == 0:
+        #     quit()
+
     result = {
         name: totals[name] / max(counts[name], 1)
         for name in metrics

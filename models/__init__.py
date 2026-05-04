@@ -19,7 +19,7 @@ class NewsEncoder(nn.Module):
         self.pool = nn.Linear(d_model, d_model)
 
     def forward(self, input_ids, mask):
-        x = self.embedding(input_ids)
+        x = self.embedding(input_ids.long())
         x = self.pos(x)
 
         for layer in self.layers:
@@ -53,13 +53,13 @@ class NewsRecModel(nn.Module):
         return emb.view(B, N, -1)
 
     def forward(self, batch):
-        hist_emb = self.encode_batch(batch["hist_ids"], batch["hist_mask"])
+        hist_emb = self.encode_batch(batch["history"], batch["history_mask"])
         user_vec = self.user_encoder(hist_emb)
 
-        imp_emb = self.encode_batch(batch["imp_ids"], batch["imp_mask"])
+        cand_emb = self.encode_batch(batch["candidate"], batch["candidate_mask"])
 
         scores = torch.bmm(
-            imp_emb,
+            cand_emb,
             user_vec.unsqueeze(-1)
         ).squeeze(-1)
 

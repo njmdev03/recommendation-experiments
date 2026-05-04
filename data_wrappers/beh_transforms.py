@@ -1,4 +1,20 @@
 import torch
+import random
+
+
+class ShuffleCandidates:
+    def __call__(self, sample):
+        ids = sample["candidate_ids"]
+        labels = sample["labels"]
+
+        paired = list(zip(ids, labels))
+        random.shuffle(paired)
+
+        ids, labels = zip(*paired)
+
+        sample["candidate_ids"] = list(ids)
+        sample["labels"] = list(labels)
+        return sample
 
 
 class ReorderCandidates:
@@ -66,15 +82,20 @@ class NewsLookup:
             "candidate": cand_input,
             "candidate_mask": cand_mask,
 
+            # "history_ids": sample["history_ids"],
+            # "candidate_ids": sample["candidate_ids"],
+
             "labels": sample["labels"]
         }
 
 class ToTensor:
     def __call__(self, sample):
         return {
-            "history": torch.tensor(sample["history"]),
-            "history_mask": torch.tensor(sample["history_mask"]),
-            "candidate": torch.tensor(sample["candidate"]),
-            "candidate_mask": torch.tensor(sample["candidate_mask"]),
-            "labels": torch.tensor(sample["labels"])
+            "history": torch.tensor(sample["history"], dtype=torch.float), # dtype=torch.float
+            "history_mask": torch.tensor(sample["history_mask"], dtype=torch.float), # dtype=torch.float
+            "candidate": torch.tensor(sample["candidate"], dtype=torch.float), # dtype=torch.float
+            "candidate_mask": torch.tensor(sample["candidate_mask"], dtype=torch.float), # dtype=torch.float
+            # "history_ids": sample["history_ids"],
+            # "candidate_ids": sample["candidate_ids"],
+            "labels": torch.tensor(sample["labels"], dtype=torch.float) # dtype=torch.float
         }

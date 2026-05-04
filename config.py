@@ -24,10 +24,16 @@ class Datasets(Enum):
     MIND_SPLIT = "MIND Split"
 
 class Tokenizers(Enum):
-    WORD = "Word"
+    WORD = "Word",
+    BPE = "BPE",
+    WORD_PIECE = "WordPiece"
+    SENTENCE_PIECE = "SentencePiece"
 
 class Embeddings(Enum):
-    SIMPLE = "Simple"
+    SIMPLE = "Simple",
+    GLOVE = "GloVe",
+    FAST_TEXT = "Fast Text",
+    WORD_2_VEC = "Word2Vec"
 
 class Models(Enum):
     BASIC = "Basic"
@@ -40,12 +46,12 @@ LOG_DIR = f"./out/{RUN_NAME}/runs"
 CKPT_DIR = f"./out/{RUN_NAME}/checkpoints"
 CKPT_NAME = Template(f"Epoch-$epoch.pt")
 
-RESUME_PATH = "./out/mind_baseline_v1/checkpoints/Epoch-2.pt"
+RESUME_PATH = None
 
 # Hyper Parameters
 LEARNING_RATE = 1e-4
 EPOCHS = 4
-BATCH_SIZE = 8
+BATCH_SIZE = 16
 ACCUM_STEPS = 1
 USE_MIX_PRE = True
 
@@ -55,10 +61,10 @@ VAL_OUTPUT_DIR = f"./out/{RUN_NAME}/val"
 VAL_SKIP_DONE = True
 
 # Metrics
-TRAINING_METRICS = [Metrics.MRR]
+TRAINING_METRICS = [Metrics.MRR, Metrics.AUC]
 TRAINING_METRIC_EVERY_N = 100
 TRAIN_VAL_METRICS = []
-VAL_METRICS = [Metrics.MRR, Metrics.NDCG_5, Metrics.NDCG_10]
+VAL_METRICS = [Metrics.AUC, Metrics.MRR, Metrics.NDCG_5, Metrics.NDCG_10]
 
 # Dataset Config
 DATASET = Datasets.MIND_SPLIT

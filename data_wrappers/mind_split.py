@@ -60,8 +60,7 @@ class MINDBehaviors:
         }
 
 def collate_fn(batch):
-    history = torch.stack([b["history"] for b in batch])
-    candidates = torch.stack([b["candidates"] for b in batch])
-    labels = torch.stack([b["labels"] for b in batch])
-
-    return history, candidates, labels
+    res = {}
+    for key in batch[0]:
+        res[key] = torch.stack([b[key] for b in batch])
+    return res
