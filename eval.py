@@ -28,10 +28,10 @@ def main():
     val_data, tok = utils.get_dataset(train=False)
 
     pad_token_id = tok.stoi["<pad>"]
-    
+
     collate_fn = utils.get_collate()
-    
-    if conf.DATASET == conf.Datasets.MIND_SPLIT:
+
+    if conf.DATASET == conf.Datasets.MIND:
         collate_fn = partial(collate_fn, dataset=val_data, pad_token_id=pad_token_id)
 
     val_loader = DataLoader(
@@ -45,7 +45,7 @@ def main():
         collate_fn=collate_fn
     )
 
-    # model = utils.get_model(len(tok))
+    embedding, emb_dim = utils.get_embedding(tok, embedding_size_hint=conf.EMBEDDING_SIZE, freeze=conf.FREEZE)
 
     ckpt_paths = sorted(glob.glob(os.path.join(conf.CKPT_DIR, "*.pt")))
 
@@ -66,7 +66,10 @@ def main():
     print(f"Checkpoint to be evaluated: {ckpt_paths}")
 
     for checkpoint in ckpt_paths:
-        model = utils.get_model(len(tok))
+        model = utils.get_model(
+            embedding=embedding,
+            embedding_size=emb_dim
+        )
         optimizer = torch.optim.Adam(model.parameters(), lr=conf.LEARNING_RATE)
         scaler = torch.amp.GradScaler(enabled=conf.USE_MIX_PRE)
 

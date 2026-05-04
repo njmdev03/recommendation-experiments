@@ -5,6 +5,7 @@ from torch.utils.data.dataloader import DataLoader
 from functools import partial
 
 import config as conf
+import config_utils
 
 import utils
 from training import engine as train
@@ -44,10 +45,10 @@ def main():
         data,
         batch_size=conf.BATCH_SIZE,
         shuffle=True,
-        # pin_memory=True,
-        # num_workers=4,
-        # persistent_workers=True,
-        # prefetch_factor=4,
+        pin_memory=True,
+        num_workers=4,
+        persistent_workers=True,
+        prefetch_factor=4,
         collate_fn=collate_fn
     )
 
@@ -100,7 +101,7 @@ def main():
             scaler,
             criterion,
             {
-                metric.value: conf.METRIC_REGISTRY[metric]
+                metric.value: config_utils.METRIC_REGISTRY[metric]
                 for metric in conf.TRAINING_METRICS
             }
         )
@@ -119,9 +120,10 @@ def main():
                 model,
                 val_loader,
                 {
-                    metric.value: conf.METRIC_REGISTRY[metric]
+                    metric.value: config_utils.METRIC_REGISTRY[metric]
                     for metric in conf.TRAIN_VAL_METRICS
-                }
+                },
+                criterion=criterion
             )
 
             checkpoints.save(

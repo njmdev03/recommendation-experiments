@@ -17,10 +17,9 @@ class NewsEncoder(nn.Module):
 
         self.embed = embedding_matrix
 
-        self.proj = nn.Linear(embedding_matrix.shape[1], d_model)
+        self.proj = nn.Linear(embedding_matrix.embedding_dim, d_model)
 
-        if positional:
-            self.pos = PositionalEncoding(d_model)
+        self.pos = PositionalEncoding(d_model) if positional else None
 
         self.layers = nn.ModuleList([
             TransformerBlock(d_model, num_heads, d_model * 4)
@@ -85,8 +84,8 @@ class NewsRecModel(nn.Module):
         return out.view(B, N, -1)
 
     def forward(self, batch):
-        hist = self.encode_news(batch["history"], batch["history_mask"])
-        cand = self.encode_news(batch["candidate"], batch["candidate_mask"])
+        hist = self.encode_news(batch["history"], batch["history_word_mask"])
+        cand = self.encode_news(batch["candidate"], batch["candidate_word_mask"])
 
         user = self.user_encoder(hist, batch["history_mask"])
 

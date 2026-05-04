@@ -16,7 +16,7 @@ def save(path, model, optimizer, scaler, epoch, metrics=None):
     }, path)
 
 def load(path, model, optimizer, scaler):
-    ckpt = torch.load(path, map_location=conf.DEVICE)
+    ckpt = torch.load(path, map_location=conf.DEVICE, weights_only=False)
 
     model.load_state_dict(ckpt["model"])
     optimizer.load_state_dict(ckpt["optimizer"])
