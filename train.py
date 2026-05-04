@@ -44,10 +44,10 @@ def main():
         data,
         batch_size=conf.BATCH_SIZE,
         shuffle=True,
-        pin_memory=True,
-        num_workers=4,
-        persistent_workers=True,
-        prefetch_factor=4,
+        # pin_memory=True,
+        # num_workers=4,
+        # persistent_workers=True,
+        # prefetch_factor=4,
         collate_fn=collate_fn
     )
 
@@ -62,19 +62,14 @@ def main():
         collate_fn=collate_fn
     )
 
-    # print("finished loading")
+    embedding, emb_dim = utils.get_embedding(tok, embedding_size_hint=conf.EMBEDDING_SIZE, freeze=conf.FREEZE)
 
-    # for batch in loader:
-    #     print(f"Keys {batch.keys()}")
-    #     print()
-    #     for key in batch:
-    #         print(f"{key} = {batch[key]}")
-    #     quit()
+    model = utils.get_model(
+        embedding_size=emb_dim,
+        embedding=embedding
+    )
 
-    model = utils.get_model(len(tok), 0, 0)
-
-    # criterion = nn.CrossEntropyLoss(ignore_index=pad_token_id)
-    criterion = nn.BCEWithLogitsLoss()
+    criterion = nn.CrossEntropyLoss(ignore_index=-1)
 
     optimizer = torch.optim.Adam(model.parameters(), lr=conf.LEARNING_RATE)
     scaler = torch.amp.GradScaler(enabled=conf.USE_MIX_PRE)

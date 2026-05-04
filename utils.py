@@ -12,7 +12,9 @@ from data_wrappers.pipeline import NewsPipeline, BehaviorPipeline
 from data_wrappers.news_transforms import *
 from data_wrappers.beh_transforms import *
 from tokenizing.basic_word import WordTokenizer
-from models import NewsRecModel
+from models import NewsRecModel as NewsRecModelOld
+from models.nrms import NRMSModel
+from models.transformer import NewsRecModel
 
 
 def get_checkpoint_path(epoch):
@@ -54,6 +56,8 @@ def get_dataset(train=True, tok=None):
             transforms=[
                 ShuffleCandidates(),
                 PadBehavior(max_hist=conf.MAX_HIST, max_cand=conf.MAX_CAND),
+                SelectSinglePositive(),
+                # MakeLabelIndex(),
                 NewsLookup(news_pipeline),
                 ToTensor()
             ]
@@ -81,23 +85,26 @@ def load_glove(glove_path):
             embeddings_index[word] = vector
     return embeddings_index
 
-
 def build_embedding_matrix(tokenizer, embeddings_index, embedding_dim):
-    embedding_matrix = np.zeros((len(tokenizer), embedding_dim))
+    vocab = tokenizer.get_vocab()
+    vocab_size = len(tokenizer)
 
-    for word, idx in tokenizer.word_index.items():
-        if idx >= len(tokenizer):
-            continue
+    embedding_matrix = np.zeros((vocab_size, embedding_dim))
+
+    for word, idx in vocab.items():
+        if tokenizer.lower:
+            word = word.lower()
+
         vector = embeddings_index.get(word)
+
         if vector is not None:
             embedding_matrix[idx] = vector
         else:
-            # optional: random init for OOV words
-            embedding_matrix[idx] = np.random.normal(scale=0.6, size=(embedding_dim,))
+            embedding_matrix[idx] = np.random.normal(scale=0.1, size=(embedding_dim,))
 
     return embedding_matrix
 
-def get_embedding(tok, embedding_size_hint, freeze=False):
+def get_embedding(tok, embedding_size_hint, freeze=False, padding_tok="<pad>"):
     if conf.EMBEDDING == conf.Embeddings.SIMPLE:
         emb = nn.Embedding(len(tok), embedding_size_hint)
 
@@ -164,19 +171,45 @@ def get_embedding(tok, embedding_size_hint, freeze=False):
 
         embedding_tensor = torch.tensor(embedding_matrix, dtype=torch.float32)
 
+        hits = sum(1 for w in tok.get_vocab() if w in embeddings_index)
+        total = len(tok)
+        print(f"GloVe coverage: {hits}/{total} = {hits/total:.2%}")
+
         return nn.Embedding.from_pretrained(
             embedding_tensor,
-            freeze=freeze
+            freeze=freeze,
+            padding_idx=tok.stoi[padding_tok]
         ), embedding_dim
 
-def get_model(vocab_size, embedding_size, embedding):
+def get_model(embedding, embedding_size):
     if conf.MODEL == conf.Models.BASIC:
-        model = NewsRecModel(vocab_size=vocab_size)
+        model = NewsRecModelOld(
+            embedding=embedding,
+            d_model=embedding_size,
+            num_heads=conf.NUM_HEADS,
+            num_layers=conf.NUM_LAYERS
+        )
 
-        if conf.COMPILE:
+    if conf.MODEL == conf.Models.NRMS:
+        model = NRMSModel(
+            embedding_matrix=embedding,
+            num_heads=conf.NUM_HEADS,
+            head_dim=conf.HEAD_DIM
+        )
+
+    if conf.MODEL == conf.Models.TRANSFORMER:
+        model = NewsRecModel(
+            embedding_matrix=embedding,
+            d_model=embedding_size,
+            num_heads=conf.NUM_HEADS,
+            num_layers=conf.NUM_LAYERS,
+            positional=conf.POSITIONAL
+        )
+
+    if conf.COMPILE:
             model = torch.compile(model)
 
-        return model.to(conf.DEVICE)
+    return model.to(conf.DEVICE)
 
 def get_collate():
     if conf.DATASET == conf.Datasets.MIND:

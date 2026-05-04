@@ -20,19 +20,19 @@ METRIC_REGISTRY = {
 }
 
 class Datasets(Enum):
-    MIND = "MIND",
+    MIND = "MIND"
     MIND_SPLIT = "MIND Split"
 
 class Tokenizers(Enum):
-    WORD = "Word",
-    BPE = "BPE",
+    WORD = "Word"
+    BPE = "BPE"
     WORD_PIECE = "WordPiece"
     SENTENCE_PIECE = "SentencePiece"
 
 class Embeddings(Enum):
-    SIMPLE = "Simple",
-    GLOVE = "GloVe",
-    FAST_TEXT = "Fast Text",
+    SIMPLE = "Simple"
+    GLOVE = "GloVe"
+    FAST_TEXT = "Fast Text"
     WORD_2_VEC = "Word2Vec"
 
 class Glove(Enum):
@@ -53,6 +53,8 @@ class Glove(Enum):
 
 class Models(Enum):
     BASIC = "Basic"
+    NRMS = "NRMS"
+    TRANSFORMER = "Transformer"
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -66,7 +68,7 @@ RESUME_PATH = None
 
 # Hyper Parameters
 LEARNING_RATE = 1e-4
-EPOCHS = 4
+EPOCHS = 1
 BATCH_SIZE = 16
 ACCUM_STEPS = 1
 USE_MIX_PRE = True
@@ -97,11 +99,20 @@ VOCAB = f"./out/{RUN_NAME}/vocabs/{TOKENIZER.value}-vocab.json"
 
 # Embeddings
 EMBEDDING = Embeddings.SIMPLE
-EMBEDDING_SIZE = 128
-GLOVE_TYPE = Glove.TWITTER_27B_50
+EMBEDDING_SIZE = 128 # Ignored for glove, glove dimensions are used instead
+GLOVE_TYPE = Glove.GLOVE_6B_200
+FREEZE = False
 
 # Model
-MODEL = Models.BASIC
+MODEL = Models.NRMS
+
+HEAD_DIM = 16 # NRMS
+NUM_HEADS = 16
+
+# NUM_HEADS = 8 # Transformer
+# NUM_LAYERS = 4
+# POSITIONAL = True
+
 COMPILE = False
 
 # Profiling (ish)
