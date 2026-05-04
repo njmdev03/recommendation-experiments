@@ -2,6 +2,7 @@ import torch
 from torch import nn
 from pathlib import Path
 from enum import Enum
+import numpy as np
 
 import config as conf
 
@@ -70,11 +71,103 @@ def get_tokenizer(data):
 
         return tok
 
-def get_embedding(vocab_size, embedding_size_hint):
+def load_glove(glove_path):
+    embeddings_index = {}
+    with open(glove_path, encoding="utf-8") as f:
+        for line in f:
+            values = line.split()
+            word = values[0]
+            vector = np.asarray(values[1:], dtype="float32")
+            embeddings_index[word] = vector
+    return embeddings_index
+
+
+def build_embedding_matrix(tokenizer, embeddings_index, embedding_dim):
+    embedding_matrix = np.zeros((len(tokenizer), embedding_dim))
+
+    for word, idx in tokenizer.word_index.items():
+        if idx >= len(tokenizer):
+            continue
+        vector = embeddings_index.get(word)
+        if vector is not None:
+            embedding_matrix[idx] = vector
+        else:
+            # optional: random init for OOV words
+            embedding_matrix[idx] = np.random.normal(scale=0.6, size=(embedding_dim,))
+
+    return embedding_matrix
+
+def get_embedding(tok, embedding_size_hint, freeze=False):
     if conf.EMBEDDING == conf.Embeddings.SIMPLE:
-        return nn.Embedding(vocab_size, embedding_size_hint)
+        emb = nn.Embedding(len(tok), embedding_size_hint)
+
+        emb.weight.requires_grad = not freeze
+
+        return emb, embedding_size_hint
+
     if conf.EMBEDDING == conf.Embeddings.GLOVE:
-        return None
+        # --- 6B ---
+        if conf.GLOVE_TYPE == conf.Glove.GLOVE_6B_50:
+            glove_path = "./data/glove/glove.6B/glove.6B.50d.txt"
+            embedding_dim = 50
+
+        elif conf.GLOVE_TYPE == conf.Glove.GLOVE_6B_100:
+            glove_path = "./data/glove/glove.6B/glove.6B.100d.txt"
+            embedding_dim = 100
+
+        elif conf.GLOVE_TYPE == conf.Glove.GLOVE_6B_200:
+            glove_path = "./data/glove/glove.6B/glove.6B.200d.txt"
+            embedding_dim = 200
+
+        elif conf.GLOVE_TYPE == conf.Glove.GLOVE_6B_300:
+            glove_path = "./data/glove/glove.6B/glove.6B.300d.txt"
+            embedding_dim = 300
+
+        # --- Twitter 27B ---
+        elif conf.GLOVE_TYPE == conf.Glove.TWITTER_27B_25:
+            glove_path = "./data/glove/glove.twitter.27B/glove.twitter.27B.25d.txt"
+            embedding_dim = 25
+
+        elif conf.GLOVE_TYPE == conf.Glove.TWITTER_27B_50:
+            glove_path = "./data/glove/glove.twitter.27B/glove.twitter.27B.50d.txt"
+            embedding_dim = 50
+
+        elif conf.GLOVE_TYPE == conf.Glove.TWITTER_27B_100:
+            glove_path = "./data/glove/glove.twitter.27B/glove.twitter.27B.100d.txt"
+            embedding_dim = 100
+
+        elif conf.GLOVE_TYPE == conf.Glove.TWITTER_27B_200:
+            glove_path = "./data/glove/glove.twitter.27B/glove.twitter.27B.200d.txt"
+            embedding_dim = 200
+
+        # --- Common Crawl 42B ---
+        elif conf.GLOVE_TYPE == conf.Glove.GLOVE_42B_300:
+            glove_path = "./data/glove/glove.42B.300d.txt"
+            embedding_dim = 300
+
+        # --- Wiki + Gigaword ---
+        elif conf.GLOVE_TYPE == conf.Glove.WIKIGIGA_50:
+            glove_path = "./data/glove/glove.6B/glove.6B.50d.txt"
+            embedding_dim = 50
+
+        elif conf.GLOVE_TYPE == conf.Glove.WIKIGIGA_300:
+            glove_path = "./data/glove/glove.6B/glove.6B.300d.txt"
+            embedding_dim = 300
+
+        embeddings_index = load_glove(glove_path)
+
+        embedding_matrix = build_embedding_matrix(
+            tok,
+            embeddings_index,
+            embedding_dim
+        )
+
+        embedding_tensor = torch.tensor(embedding_matrix, dtype=torch.float32)
+
+        return nn.Embedding.from_pretrained(
+            embedding_tensor,
+            freeze=freeze
+        ), embedding_dim
 
 def get_model(vocab_size, embedding_size, embedding):
     if conf.MODEL == conf.Models.BASIC:
@@ -91,8 +184,3 @@ def get_collate():
 
     if conf.DATASET == conf.Datasets.MIND_SPLIT:
         return split_collate
-
-class TrainingMode(Enum):
-    TOKENS = "tokens",
-    CACHE_EMBEDDINGS = "cache_embeddings"
-    BERT = "bert"

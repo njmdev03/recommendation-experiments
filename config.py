@@ -1,4 +1,4 @@
-from enum import Enum
+from enum import Enum, auto
 import torch
 from string import Template
 from functools import partial
@@ -34,6 +34,22 @@ class Embeddings(Enum):
     GLOVE = "GloVe",
     FAST_TEXT = "Fast Text",
     WORD_2_VEC = "Word2Vec"
+
+class Glove(Enum):
+    GLOVE_6B_50 = auto()
+    GLOVE_6B_100 = auto()
+    GLOVE_6B_200 = auto()
+    GLOVE_6B_300 = auto()
+
+    TWITTER_27B_25 = auto()
+    TWITTER_27B_50 = auto()
+    TWITTER_27B_100 = auto()
+    TWITTER_27B_200 = auto()
+
+    GLOVE_42B_300 = auto()
+
+    WIKIGIGA_300 = auto()
+    WIKIGIGA_50 = auto()
 
 class Models(Enum):
     BASIC = "Basic"
@@ -82,6 +98,7 @@ VOCAB = f"./out/{RUN_NAME}/vocabs/{TOKENIZER.value}-vocab.json"
 # Embeddings
 EMBEDDING = Embeddings.SIMPLE
 EMBEDDING_SIZE = 128
+GLOVE_TYPE = Glove.TWITTER_27B_50
 
 # Model
 MODEL = Models.BASIC
