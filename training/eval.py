@@ -24,12 +24,17 @@ def evaluate(model, loader, metrics: dict = None, criterion=None):
     total_loss = 0
     total_count = 0
     start_time = time.time()
+    
+    inference_times = []
 
     for step, batch in enumerate(pbar):
         for k in batch:
             batch[k] = batch[k].to(conf.DEVICE, non_blocking=True)
 
+        t0 = time.time()
         logits = model(batch)
+        t1 = time.time()
+        inference_times.append(t1 - t0)
 
         if criterion:
             loss = criterion(logits, batch["labels"])
@@ -57,5 +62,6 @@ def evaluate(model, loader, metrics: dict = None, criterion=None):
         res["loss"] = total_loss / max(total_count, 1)
 
     res["eval_time"] = eval_time
+    res["avg_batch_inference_time"] = sum(inference_times) / len(inference_times) if inference_times else 0
 
     return res

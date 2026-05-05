@@ -8,6 +8,7 @@ import json
 from pathlib import Path
 
 import config as conf
+import config_utils
 
 import utils
 from training import eval as evaluator
@@ -70,6 +71,7 @@ def main():
             embedding=embedding,
             embedding_size=emb_dim
         )
+        criterion = nn.CrossEntropyLoss(ignore_index=-1)
         optimizer = torch.optim.Adam(model.parameters(), lr=conf.LEARNING_RATE)
         scaler = torch.amp.GradScaler(enabled=conf.USE_MIX_PRE)
 
@@ -85,9 +87,10 @@ def main():
             model,
             val_loader,
             {
-                metric.value: conf.METRIC_REGISTRY[metric]
+                metric.value: config_utils.METRIC_REGISTRY[metric]
                 for metric in conf.VAL_METRICS
-            }
+            },
+            criterion=criterion
         )
 
         # Build output dict
@@ -95,6 +98,12 @@ def main():
             "checkpoint": checkpoint,
             "metrics": to_json_safe(eval_metrics)
         }
+
+        # Add epoch if possible
+        import re
+        epoch_match = re.search(r"Epoch-(\d+)", os.path.basename(checkpoint))
+        if epoch_match:
+            result["epoch"] = int(epoch_match.group(1))
 
         # Create output filename based on checkpoint name
         ckpt_filename = os.path.basename(checkpoint)          # e.g. model_epoch10.pt

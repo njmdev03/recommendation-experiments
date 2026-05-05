@@ -13,14 +13,27 @@ class RunReport:
     utilities for inspection, aggregation, and export.
     """
 
+    COLORS = {
+        "Train": "#1f77b4",        # Blue
+        "Eval": "#ff7f0e",          # Orange
+        "Val": "#2ca02c"          # Green
+    }
+
+    MARKERS = {
+        "Train": "o",
+        "Eval": "s",
+        "Val": "D"
+    }
+
     def __init__(self, run_dir: str, device: str = "cpu"):
         self.run_dir = run_dir
         self.device = device
 
         self.checkpoint_dir = os.path.join(run_dir, "checkpoints")
-        self.eval_dir = os.path.join(run_dir, "eval")
+        self.eval_dir = os.path.join(run_dir, "val") # Changed to 'val' to match eval.py output
 
         self.checkpoints = []
+        self.eval_results = []
         self.metrics_table = None
 
         print("RAW checkpoint_dir:", self.checkpoint_dir)
@@ -47,16 +60,26 @@ class RunReport:
         self.checkpoints = checkpoints
         return checkpoints
 
-    def load_eval_metrics(self, filename: str = "metrics.json") -> Optional[Dict]:
+    def load_eval_results(self) -> List[Dict]:
         """
-        Loads evaluation metrics if available.
+        Loads metrics from the evaluation run (val/*.json).
         """
-        path = os.path.join(self.eval_dir, filename)
-        if not os.path.exists(path):
-            return None
+        eval_paths = sorted(glob.glob(os.path.join(self.eval_dir, "*.json")))
+        results = []
+        for path in eval_paths:
+            with open(path, "r") as f:
+                data = json.load(f)
+                # Attempt to extract epoch from filename if not in data
+                # Typically filenames are like Epoch-1.json
+                filename = os.path.basename(path)
+                if "epoch" not in data:
+                    import re
+                    match = re.search(r"Epoch-(\d+)", filename)
+                    data["epoch"] = int(match.group(1)) if match else -1
+                results.append(data)
 
-        with open(path, "r") as f:
-            return json.load(f)
+        self.eval_results = sorted(results, key=lambda x: x.get("epoch", 0))
+        return self.eval_results
 
     # -------------------------
     # Metrics extraction
@@ -64,21 +87,34 @@ class RunReport:
     def build_metrics_table(self) -> pd.DataFrame:
         if not self.checkpoints:
             self.load_checkpoints()
+        if not self.eval_results:
+            self.load_eval_results()
 
         rows = []
-        for ckpt in self.checkpoints:
-            metrics = ckpt.get("metrics") or {}
+        # Merge by epoch
+        epochs = sorted(list(set(
+            [ckpt.get("epoch") for ckpt in self.checkpoints] +
+            [res.get("epoch") for res in self.eval_results]
+        )))
 
-            row = {
-                "epoch": ckpt.get("epoch", -1),
-                "path": ckpt.get("path"),
-            }
+        for epoch in epochs:
+            row = {"epoch": epoch}
 
-            # Flatten train/eval metrics
-            for split in ["train", "eval"]:
-                split_metrics = metrics.get(split, {})
-                for k, v in split_metrics.items():
-                    row[f"{split}_{k}"] = v
+            # Find checkpoint metrics
+            ckpt = next((c for c in self.checkpoints if c.get("epoch") == epoch), None)
+            if ckpt:
+                metrics = ckpt.get("metrics") or {}
+                for split in ["train", "eval"]: # 'eval' here is what train_epoch calls validation
+                    split_metrics = metrics.get(split, {})
+                    for k, v in split_metrics.items():
+                        row[f"train_val_{split}_{k}"] = v # Distinguish from full eval
+
+            # Find full evaluation metrics (from eval.py)
+            eval_res = next((r for r in self.eval_results if r.get("epoch") == epoch), None)
+            if eval_res:
+                metrics = eval_res.get("metrics") or {}
+                for k, v in metrics.items():
+                    row[f"final_eval_{k}"] = v
 
             rows.append(row)
 
@@ -220,12 +256,22 @@ class RunReport:
         if metric not in df.columns:
             raise ValueError(f"Metric '{metric}' not found.")
 
+        # Try to determine color/marker based on prefix
+        color = "#333333"
+        marker = "o"
+        if "train_val_train_" in metric:
+            color, marker = self.COLORS["Train"], self.MARKERS["Train"]
+        elif "train_val_eval_" in metric:
+            color, marker = self.COLORS["Val"], self.MARKERS["Val"]
+        elif "final_eval_" in metric:
+            color, marker = self.COLORS["Eval"], self.MARKERS["Eval"]
+
         plt.figure()
-        plt.plot(df["epoch"], df[metric], marker="o")
+        plt.plot(df["epoch"], df[metric], marker=marker, color=color, linewidth=2)
         plt.title(f"{metric} over epochs")
         plt.xlabel("Epoch")
         plt.ylabel(metric)
-        plt.grid(True)
+        plt.grid(True, linestyle='--', alpha=0.7)
 
         if save_path is None:
             save_path = os.path.join(self.run_dir, f"{metric}_curve.png")
@@ -243,21 +289,31 @@ class RunReport:
         if df.empty:
             return
 
-        metrics = set()
+        # Find all metric types (ignoring prefixes)
+        metric_names = set()
         for col in df.columns:
-            if col.startswith("train_") or col.startswith("eval_"):
-                metrics.add(col.split("_", 1)[1])
+            for prefix in ["train_val_train_", "train_val_eval_", "final_eval_"]:
+                if col.startswith(prefix):
+                    metric_names.add(col.replace(prefix, ""))
 
-        for m in metrics:
+        for m in metric_names:
             plt.figure(figsize=(10, 6))
 
-            has_train = f"train_{m}" in df.columns
-            has_eval = f"eval_{m}" in df.columns
+            # Map of internal column names to display labels
+            variants = {
+                f"train_val_train_{m}": ("Train", self.COLORS["Train"], self.MARKERS["Train"]),
+                f"train_val_eval_{m}": ("Val (during training)", self.COLORS["Val"], self.MARKERS["Val"]),
+                f"final_eval_{m}": ("Final Eval", self.COLORS["Eval"], self.MARKERS["Eval"])
+            }
 
-            if has_train:
-                plt.plot(df["epoch"], df[f"train_{m}"], label=f"Train {m}", marker='o')
-            if has_eval:
-                plt.plot(df["epoch"], df[f"eval_{m}"], label=f"Eval {m}", marker='s')
+            found = False
+            for col, (label, color, marker) in variants.items():
+                if col in df.columns and df[col].notna().any():
+                    plt.plot(df["epoch"], df[col], label=label, color=color, marker=marker, linewidth=2)
+                    found = True
+
+            if not found:
+                continue
 
             plt.title(f"{m} over Epochs")
             plt.xlabel("Epoch")
@@ -290,16 +346,44 @@ class RunReport:
         if "glove_coverage" in info:
             report.append(f"- **GloVe Coverage:** {info['glove_coverage']:.2%} ({info['glove_hits']}/{info['vocab_size']})")
 
-        report.append(f"\n## Training Progress")
+        report.append(f"\n## Visualizations")
 
-        # Filter columns for display
-        cols_to_show = ["epoch"] + [c for c in df.columns if c.startswith("train_") or c.startswith("eval_")]
-        cols_to_show = [c for c in cols_to_show if c in df.columns]
+        # Add links to all generated curves
+        metric_names = set()
+        for col in df.columns:
+            for prefix in ["train_val_train_", "train_val_eval_", "final_eval_"]:
+                if col.startswith(prefix):
+                    metric_names.add(col.replace(prefix, ""))
+
+        for m in sorted(list(metric_names)):
+            curve_file = f"{m}_curve.png"
+            if os.path.exists(os.path.join(self.run_dir, curve_file)):
+                report.append(f"### {m}\n![{m} Curve]({curve_file})")
+
+        report.append(f"\n## Training & Evaluation Progress")
+
+        # Prettify table columns for MD
+        table_df = df.copy()
+
+        # Filter columns for display and rename them
+        display_cols = {"epoch": "Epoch"}
+        for col in table_df.columns:
+            if col.startswith("train_val_train_"):
+                display_cols[col] = "Train " + col.replace("train_val_train_", "")
+            elif col.startswith("train_val_eval_"):
+                display_cols[col] = "Val " + col.replace("train_val_eval_", "")
+            elif col.startswith("final_eval_"):
+                display_cols[col] = "Eval " + col.replace("final_eval_", "")
+
+        # Only keep columns that actually exist in the dataframe
+        actual_cols = [c for c in display_cols.keys() if c in table_df.columns]
+        table_df = table_df[actual_cols].rename(columns={c: display_cols[c] for c in actual_cols})
 
         try:
-            report.append(df[cols_to_show].to_markdown(index=False))
+            # Use pipe format for standard markdown compatibility
+            report.append(table_df.to_markdown(index=False, tablefmt="pipe", floatfmt=".4f"))
         except ImportError:
-            report.append(df[cols_to_show].to_string(index=False))
+            report.append("\n" + table_df.to_string(index=False) + "\n")
 
         report_path = os.path.join(self.run_dir, "report.md")
         with open(report_path, "w") as f:
@@ -326,6 +410,7 @@ if __name__ == "__main__":
 
     report = RunReport(args.run_dir)
     report.load_checkpoints()
+    report.load_eval_results() # Explicitly load eval results
     report.print_summary()
 
     if args.export_csv:
