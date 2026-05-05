@@ -13,7 +13,7 @@ CKPT_NAME = Template(f"Epoch-$epoch.pt")
 RESUME_PATH = None
 
 LEARNING_RATE = 1e-4
-EPOCHS = 1
+EPOCHS = 3
 BATCH_SIZE = 16
 ACCUM_STEPS = 1
 USE_MIX_PRE = True
